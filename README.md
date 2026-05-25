@@ -1,4 +1,4 @@
-# Meta MCP
+# Graph Bridge MCP
 
 An MCP server for the Instagram Graph API. Publish posts, manage DMs, and monitor comments across multiple Instagram accounts — directly through Claude or any MCP-compatible AI assistant.
 
@@ -19,8 +19,8 @@ An MCP server for the Instagram Graph API. Publish posts, manage DMs, and monito
 ## Installation
 
 ```bash
-git clone https://github.com/hello-emrah/meta-mcp.git
-cd meta-mcp
+git clone https://github.com/hello-emrah/graph-bridge-mcp.git
+cd graph-bridge-mcp
 npm install
 ```
 
@@ -65,9 +65,9 @@ META_APP_SECRET=your_app_secret
 Add to your `~/.claude.json` under `mcpServers`:
 
 ```json
-"meta-mcp": {
+"graph-bridge-mcp": {
   "command": "node",
-  "args": ["/path/to/meta-mcp/index.js"],
+  "args": ["/path/to/graph-bridge-mcp/index.js"],
   "env": {
     "INSTAGRAM_ACCOUNTS": "myaccount,mybusiness",
     "INSTAGRAM_MYACCOUNT_TOKEN": "...",

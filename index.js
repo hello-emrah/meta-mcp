@@ -279,7 +279,7 @@ const TOOLS = [
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'meta-mcp', version: '1.0.0' },
+  { name: 'graph-bridge-mcp', version: '1.0.0' },
   { capabilities: { tools: {} } }
 );
 
