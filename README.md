@@ -49,7 +49,7 @@ META_APP_SECRET=your_app_secret
 
 ### Getting your credentials
 
-1. Go to [developers.facebook.com](https://developers.facebook.com) and create a **Business** app
+1. Go to [developers.facebook.com/apps](https://developers.facebook.com/apps/) and create a **Business** app
 2. Add the **Instagram Graph API** product to your app
 3. Under Settings → Basic, copy your App ID and App Secret
 4. Add these permissions under App Review → Permissions:
