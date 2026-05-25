@@ -279,7 +279,7 @@ const TOOLS = [
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'instagram-mcp', version: '1.0.0' },
+  { name: 'meta-mcp', version: '1.0.0' },
   { capabilities: { tools: {} } }
 );
 
