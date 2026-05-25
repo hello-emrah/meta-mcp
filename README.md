@@ -143,8 +143,8 @@ Eighteen tools across account, publishing, comments and DMs, insights, and disco
 
 | Tool | Description |
 |---|---|
-| `get_post_insights` | Per-post metrics (reach, impressions, saved, likes, comments, shares, total interactions) |
-| `get_account_insights` | Account-level metrics over a window (also listed under Account) |
+| `get_post_insights` | Per-post metrics. Universally safe defaults: reach, likes, comments, shares, saved, total_interactions. For video/reel-specific (views, ig_reels_avg_watch_time, plays), pass them explicitly. |
+| `get_account_insights` | Account-level metrics over a window. Defaults: reach, follower_count. For profile_views, accounts_engaged, website_clicks, set `metric_type=total_value`. |
 
 ### Discovery
 
@@ -172,7 +172,7 @@ Meta enforces format and size limits on the publishing endpoints. Ouroboros pass
 - **Async publishing.** `publish_video`, `publish_reel`, and `publish_story` (video) wait up to 90 seconds for Meta to process the upload. Larger files may need a longer wait; if you hit the timeout the container often finishes anyway and you can retry the publish step.
 - **Errors come back inline.** When Meta rejects a call (bad URL, expired token, missing permission, format mismatch), the error message and code surface in the tool's response. No silent failures.
 - **DM sending** requires `instagram_manage_messages`. Works in dev mode for accounts added as app testers; requires Meta app review for general use.
-- **Insights** requires `instagram_manage_insights`. Some newer account metrics need `metric_type=total_value` and a `period`; pass these through if the docs call for them.
+- **Insights** requires `instagram_manage_insights`. The legacy `impressions` metric was deprecated by Meta on 2 April 2025 for posts, reels, videos, and carousels; use `views` for video and reel where you need that surface. Account-level metrics like `profile_views`, `accounts_engaged`, and `website_clicks` are now part of the v18+ aggregate set: pass them in `metrics` AND set `metric_type=total_value`.
 - **Long-lived tokens** expire after 60 days. Refresh via `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=...` or rotate from the Meta dashboard.
 
 ## Design philosophy

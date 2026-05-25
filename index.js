@@ -233,9 +233,11 @@ async function publishStory(key, { imageUrl, videoUrl }) {
 
 async function getPostInsights(key, postId, metrics) {
   const { accessToken } = getAccount(key);
+  // Universally safe defaults across image, carousel, video, and reel.
+  // 'impressions' was deprecated April 2025 (use 'views' for video/reel specifically).
   const metric = metrics && metrics.length
     ? metrics.join(',')
-    : 'reach,impressions,saved,likes,comments,shares,total_interactions';
+    : 'reach,likes,comments,shares,saved,total_interactions';
   return graph(`/${postId}/insights`, 'GET', {
     metric,
     access_token: accessToken,
@@ -295,9 +297,12 @@ async function deleteComment(key, commentId) {
 
 async function getAccountInsights(key, { metrics, period = 'day', metric_type, since, until } = {}) {
   const { accessToken, userId } = getAccount(key);
+  // Safe defaults for the standard query (no metric_type required).
+  // For 'profile_views', 'accounts_engaged', 'website_clicks', etc, pass them
+  // explicitly via metrics AND set metric_type='total_value'.
   const metric = metrics && metrics.length
     ? metrics.join(',')
-    : 'reach,profile_views,follower_count,website_clicks';
+    : 'reach,follower_count';
   const params = {
     metric,
     period,
@@ -475,27 +480,27 @@ const TOOLS = [
   },
   {
     name: 'get_post_insights',
-    description: 'Get insights (metrics) for a specific post, reel, or video. Defaults to a cross-media-type metric set.',
+    description: 'Get insights (metrics) for a specific post, reel, or video. Universally safe defaults across all media types. For video/reel-specific metrics like views, ig_reels_avg_watch_time, plays, pass them explicitly via metrics.',
     inputSchema: {
       type: 'object',
       properties: {
         account: { type: 'string', description: accountDesc },
         post_id: { type: 'string', description: 'IG media ID' },
-        metrics: { type: 'array', items: { type: 'string' }, description: 'Optional list of metrics to request. Defaults to reach, impressions, saved, likes, comments, shares, total_interactions.' },
+        metrics: { type: 'array', items: { type: 'string' }, description: 'Optional list of metrics. Default: reach, likes, comments, shares, saved, total_interactions. The legacy "impressions" metric was deprecated April 2025; use "views" for video and reel.' },
       },
       required: ['account', 'post_id'],
     },
   },
   {
     name: 'get_account_insights',
-    description: 'Get insights (metrics) for the account itself, over a time window. Defaults to reach, profile_views, follower_count, website_clicks.',
+    description: 'Get insights (metrics) for the account itself, over a time window. Default returns reach and follower_count. For profile_views, accounts_engaged, website_clicks, etc, pass them in metrics AND set metric_type to total_value.',
     inputSchema: {
       type: 'object',
       properties: {
         account: { type: 'string', description: accountDesc },
-        metrics: { type: 'array', items: { type: 'string' }, description: 'Optional list of metrics. Default: reach, profile_views, follower_count, website_clicks.' },
+        metrics: { type: 'array', items: { type: 'string' }, description: 'Optional list of metrics. Default: reach, follower_count. For profile_views, accounts_engaged, website_clicks, set metric_type=total_value.' },
         period: { type: 'string', description: 'day, week, days_28. Default: day.' },
-        metric_type: { type: 'string', description: 'Optional metric_type (e.g. total_value) required by some v18+ metrics.' },
+        metric_type: { type: 'string', description: 'Set to total_value for the newer aggregate metrics (profile_views, accounts_engaged, website_clicks, etc).' },
         since: { type: 'string', description: 'Optional Unix timestamp lower bound' },
         until: { type: 'string', description: 'Optional Unix timestamp upper bound' },
       },
@@ -558,7 +563,7 @@ const TOOLS = [
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'ouroboros-mcp', version: '1.3.0' },
+  { name: 'ouroboros-mcp', version: '1.3.1' },
   { capabilities: { tools: {} } }
 );
 
