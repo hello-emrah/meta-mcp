@@ -1,0 +1,24 @@
+{
+  "name": "instagram-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Instagram Graph API — publish posts, manage DMs, and monitor comments across multiple accounts.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0"
+  },
+  "keywords": [
+    "mcp",
+    "instagram",
+    "meta",
+    "social-media",
+    "claude-code"
+  ],
+  "license": "MIT"
+}
