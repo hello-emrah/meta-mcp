@@ -1,10 +1,22 @@
-# Graph Bridge MCP
+<p align="center">
+  <img src="assets/logo.png" alt="Ouroboros" width="240" />
+</p>
 
-An MCP server for the Instagram Graph API. Publish posts, manage DMs, and monitor comments across multiple Instagram accounts — directly through Claude or any MCP-compatible AI assistant.
+<h1 align="center">Ouroboros</h1>
+
+<p align="center">
+  An MCP server for the Instagram Graph API.<br/>
+  Publish, message, monitor — across multiple accounts.<br/>
+  <strong>The endless loop, on your terms.</strong>
+</p>
 
 <p align="center">
   <a href="https://buymeacoffee.com/hello_emrah"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-c46b44?logo=buymeacoffee&logoColor=ffffff&style=for-the-badge" alt="Buy Me a Coffee" /></a>
 </p>
+
+---
+
+The serpent eats her tail. The platform's content cycle is endless and so is the rhythm of working it: post, reply, monitor, post again. Ouroboros wraps Meta's Graph API so the cycle runs through Claude Code instead of a browser tab and a phone. The lotus crown on the mark is the reminder: you sit above the loop, not inside it.
 
 ## Features
 
@@ -12,7 +24,7 @@ An MCP server for the Instagram Graph API. Publish posts, manage DMs, and monito
 - Read and send DMs
 - Read and reply to comments
 - Fetch account info and recent posts
-- Multi-account support — configure any number of accounts via env vars, no code changes
+- Multi-account support, configure any number of accounts via env vars, no code changes
 
 ## Requirements
 
@@ -23,8 +35,8 @@ An MCP server for the Instagram Graph API. Publish posts, manage DMs, and monito
 ## Installation
 
 ```bash
-git clone https://github.com/hello-emrah/graph-bridge-mcp.git
-cd graph-bridge-mcp
+git clone https://github.com/hello-emrah/ouroboros-mcp.git
+cd ouroboros-mcp
 npm install
 ```
 
@@ -69,9 +81,9 @@ META_APP_SECRET=your_app_secret
 Add to your `~/.claude.json` under `mcpServers`:
 
 ```json
-"graph-bridge-mcp": {
+"ouroboros": {
   "command": "node",
-  "args": ["/path/to/graph-bridge-mcp/index.js"],
+  "args": ["/path/to/ouroboros-mcp/index.js"],
   "env": {
     "INSTAGRAM_ACCOUNTS": "myaccount,mybusiness",
     "INSTAGRAM_MYACCOUNT_TOKEN": "...",
@@ -84,6 +96,8 @@ Add to your `~/.claude.json` under `mcpServers`:
 }
 ```
 
+Restart Claude Code. Tools appear under the `mcp__ouroboros__*` namespace.
+
 ## Tools
 
 | Tool | Description |
@@ -91,7 +105,7 @@ Add to your `~/.claude.json` under `mcpServers`:
 | `get_account_info` | Profile info, follower count, bio |
 | `get_recent_posts` | Recent media with likes and comments count |
 | `publish_photo` | Publish a single image post |
-| `publish_carousel` | Publish a multi-image carousel (2–10 images) |
+| `publish_carousel` | Publish a multi-image carousel (2 to 10 images) |
 | `get_conversations` | List DM conversations |
 | `get_messages` | Messages within a conversation |
 | `send_message` | Send a DM to a user |
@@ -103,8 +117,14 @@ All tools take an `account` parameter matching one of your configured account ke
 ## Notes
 
 - Images must be publicly accessible URLs for publishing
-- DM sending requires `instagram_manage_messages` — works in dev mode for accounts added as app testers, requires Meta app review for general use
+- DM sending requires `instagram_manage_messages`, works in dev mode for accounts added as app testers, requires Meta app review for general use
 - Long-lived tokens expire after 60 days and need to be refreshed
+
+## Design philosophy
+
+The visual mark and the tool itself were built deliberately against the visual language of capitalist software design. Single-shade flat seals in considered colours, ancient-glyph silhouettes, generous whitespace. The mark could be pressed into wax or carved into stone. The Meta-blue here is intentional, a wink: an ouroboros-shaped tool wrapping Meta's own infinity-looped API.
+
+Built for personal use and shared openly. Not productised, not monetised, not instrumented. Use it for your own work or fork it for yours.
 
 ## License
 

@@ -279,7 +279,7 @@ const TOOLS = [
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'graph-bridge-mcp', version: '1.0.0' },
+  { name: 'ouroboros-mcp', version: '1.1.0' },
   { capabilities: { tools: {} } }
 );
 
