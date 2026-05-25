@@ -1,6 +1,6 @@
 {
   "name": "ouroboros-mcp",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Ouroboros: an MCP server for the Meta Graph API. Instagram (photos, carousels, Reels, Stories, video, DMs, comments, insights, tagged-post discovery, hashtag search, moderation), Threads (publish, reply, carousels, conversations, insights), and Facebook Pages (publish, comments, moderation, insights) across multiple accounts.",
   "main": "index.js",
   "type": "module",

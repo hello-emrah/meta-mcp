@@ -297,11 +297,21 @@ async function getTaggedPosts(key, limit = 25) {
 async function searchHashtag(key, hashtag, { sort = 'top', limit = 25 } = {}) {
   const { accessToken, userId } = getAccount(key);
   const clean = hashtag.replace(/^#/, '');
-  const search = await graph(`/ig_hashtag_search`, 'GET', {
-    user_id: userId,
-    q: clean,
-    access_token: accessToken,
-  });
+  let search;
+  try {
+    search = await graph(`/ig_hashtag_search`, 'GET', {
+      user_id: userId,
+      q: clean,
+      access_token: accessToken,
+    });
+  } catch (err) {
+    if (err.message.includes("ig_hashtag_search") || err.message.includes("code 100")) {
+      throw new Error(
+        "search_hashtag requires a Facebook Login flow token (Instagram Business account linked to a Facebook Page, with `pages_show_list` + `instagram_basic` on a User Access Token). Instagram Login flow tokens (from the Instagram API setup page) cannot reach the hashtag search endpoint. See README → Notes → Hashtag search."
+      );
+    }
+    throw err;
+  }
   if (!search.data || !search.data.length) {
     return { hashtag: clean, results: [] };
   }
@@ -855,7 +865,7 @@ const TOOLS = [
   },
   {
     name: 'search_hashtag',
-    description: 'Search a hashtag and return its top or recent media. Two-step under the hood (search → posts). NOTE: Meta caps unique hashtag searches at 30 per account per 7 days, so use deliberately.',
+    description: 'Search a hashtag and return its top or recent media. NOTE: Requires a Facebook Login flow token (FB Page linked to IG Business account). Instagram Login flow tokens cannot reach this endpoint. Meta caps unique hashtag searches at 30 per account per 7 days.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1170,7 +1180,7 @@ const TOOLS = [
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'ouroboros-mcp', version: '1.5.0' },
+  { name: 'ouroboros-mcp', version: '1.5.1' },
   { capabilities: { tools: {} } }
 );
 

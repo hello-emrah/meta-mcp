@@ -214,7 +214,7 @@ Thirty-seven tools across Instagram (18), Threads (9), and Facebook Pages (10). 
 | Tool | Description |
 |---|---|
 | `get_tagged_posts` | Posts that tagged this account (UGC pickup) |
-| `search_hashtag` | Top or recent media for a given hashtag. **Rate limited: 30 unique hashtag searches per account per 7 days.** |
+| `search_hashtag` | Top or recent media for a given hashtag. **Requires a Facebook Login flow token (FB Page linked to the IG Business account); not reachable with Instagram Login flow tokens. Rate limited by Meta: 30 unique hashtag searches per account per 7 days.** |
 
 ## Threads tools
 
@@ -327,6 +327,7 @@ Meta enforces format and size limits on the publishing endpoints. Ouroboros pass
 - **Async publishing.** `publish_video`, `publish_reel`, and `publish_story` (video) wait up to 90 seconds for Meta to process the upload. Larger files may need a longer wait; if you hit the timeout the container often finishes anyway and you can retry the publish step.
 - **Errors come back inline.** When Meta rejects a call (bad URL, expired token, missing permission, format mismatch), the error message and code surface in the tool's response. No silent failures.
 - **DM sending** requires `instagram_manage_messages`. Works in dev mode for accounts added as app testers; requires Meta app review for general use.
+- **Hashtag search** lives at `graph.facebook.com/ig_hashtag_search` and is only callable with a Facebook Login flow token (a user token from a Facebook account whose Page is linked to the IG Business account). Tokens from the Instagram Login flow (the simpler setup most installs use) are scoped to `graph.instagram.com` and cannot reach this endpoint. If you need hashtag search, set up the Facebook Login flow alongside Instagram Login and use a Facebook user token for IG calls.
 - **Insights** require their platform-specific permission: `instagram_manage_insights` for IG, `threads_manage_insights` for Threads, `read_insights` for Facebook Pages. The legacy IG `impressions` metric was deprecated by Meta on 2 April 2025 for posts, reels, videos, and carousels; use `views` for video and reel where you need that surface. IG account-level metrics like `profile_views`, `accounts_engaged`, and `website_clicks` are now part of the v18+ aggregate set: pass them in `metrics` AND set `metric_type=total_value`.
 - **Threads reply control.** `reply_control` accepts `everyone` (default), `accounts_you_follow`, or `mentioned_only`. Set on the top-level publish call, not per reply.
 - **Facebook Page Access Tokens** are different from User Access Tokens. You need a Page Access Token (obtained from `/me/accounts` with a user token that has `pages_show_list`). Page tokens generated from a long-lived user token are themselves long-lived (effectively no expiry while the user token is valid).
