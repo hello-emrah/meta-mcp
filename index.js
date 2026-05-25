@@ -3,8 +3,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
-const GRAPH_API_BASE   = 'https://graph.instagram.com/v21.0';
-const THREADS_API_BASE = 'https://graph.threads.net/v1.0';
+const GRAPH_API_BASE    = 'https://graph.instagram.com/v21.0';
+const THREADS_API_BASE  = 'https://graph.threads.net/v1.0';
+const FACEBOOK_API_BASE = 'https://graph.facebook.com/v21.0';
 
 // Load account keys from env. ACCOUNTS is platform-neutral and preferred;
 // INSTAGRAM_ACCOUNTS is the legacy fallback (kept so existing installs keep working).
@@ -48,15 +49,32 @@ function getThreadsAccount(key) {
   return { label: key, accessToken, userId };
 }
 
+function getFacebookAccount(key) {
+  if (!ACCOUNT_KEYS.includes(key)) {
+    throw new Error(`Unknown account "${key}". Configured accounts: ${ACCOUNT_KEYS.join(', ')}.`);
+  }
+  const upper = key.toUpperCase();
+  const accessToken = process.env[`FACEBOOK_${upper}_TOKEN`];
+  const pageId      = process.env[`FACEBOOK_${upper}_PAGE_ID`];
+  if (!accessToken || !pageId) {
+    throw new Error(`Missing Facebook credentials for "${key}". Set FACEBOOK_${upper}_TOKEN (Page Access Token) and FACEBOOK_${upper}_PAGE_ID.`);
+  }
+  return { label: key, accessToken, pageId };
+}
+
 async function graph(endpoint, method = 'GET', params = {}) {
   return apiCall(GRAPH_API_BASE, endpoint, method, params);
 }
 
 async function threadsGraph(endpoint, method = 'GET', params = {}) {
-  return apiCall(THREADS_API_BASE, endpoint, method, params);
+  return apiCall(THREADS_API_BASE, endpoint, method, params, 'Threads API');
 }
 
-async function apiCall(base, endpoint, method, params) {
+async function facebookGraph(endpoint, method = 'GET', params = {}) {
+  return apiCall(FACEBOOK_API_BASE, endpoint, method, params, 'Facebook Graph API');
+}
+
+async function apiCall(base, endpoint, method, params, label = 'Graph API') {
   const url = new URL(`${base}${endpoint}`);
   const options = { method };
 
@@ -69,7 +87,7 @@ async function apiCall(base, endpoint, method, params) {
 
   const res = await fetch(url.toString(), options);
   const data = await res.json();
-  if (data.error) throw new Error(`${base.includes('threads') ? 'Threads API' : 'Graph API'}: ${data.error.message} (code ${data.error.code})`);
+  if (data.error) throw new Error(`${label}: ${data.error.message} (code ${data.error.code})`);
   return data;
 }
 
@@ -495,6 +513,141 @@ async function threadsGetAccountInsights(key, { metrics, since, until } = {}) {
   return threadsGraph(`/${userId}/threads_insights`, 'GET', params);
 }
 
+// ─── Facebook Pages ───────────────────────────────────────────────────────────
+
+async function waitForFacebookVideo(videoId, accessToken, { maxWaitMs = 90000, pollMs = 3000 } = {}) {
+  const start = Date.now();
+  let last;
+  while (Date.now() - start < maxWaitMs) {
+    last = await facebookGraph(`/${videoId}`, 'GET', {
+      fields: 'status',
+      access_token: accessToken,
+    });
+    const code = last.status && last.status.video_status;
+    if (code === 'ready') return last;
+    if (code === 'error' || code === 'expired') {
+      throw new Error(`Facebook video ${code}: ${(last.status && last.status.processing_progress) || 'no detail'}`);
+    }
+    await new Promise(r => setTimeout(r, pollMs));
+  }
+  throw new Error(`Facebook video did not become ready within ${maxWaitMs / 1000}s. Last status: ${last && last.status && last.status.video_status}`);
+}
+
+async function facebookGetPage(key) {
+  const { accessToken, pageId, label } = getFacebookAccount(key);
+  const data = await facebookGraph(`/${pageId}`, 'GET', {
+    fields: 'id,name,about,category,category_list,fan_count,followers_count,verification_status,link,picture,cover,website',
+    access_token: accessToken,
+  });
+  return { account: label, ...data };
+}
+
+async function facebookGetPosts(key, limit = 10) {
+  const { accessToken, pageId } = getFacebookAccount(key);
+  return facebookGraph(`/${pageId}/posts`, 'GET', {
+    fields: 'id,message,story,created_time,permalink_url,full_picture,attachments{type,media_type,url,title,description}',
+    limit,
+    access_token: accessToken,
+  });
+}
+
+async function facebookGetPost(key, postId) {
+  const { accessToken } = getFacebookAccount(key);
+  return facebookGraph(`/${postId}`, 'GET', {
+    fields: 'id,message,story,created_time,permalink_url,full_picture,from,attachments{type,media_type,url,title,description,target}',
+    access_token: accessToken,
+  });
+}
+
+async function facebookPublish(key, { message, imageUrl, videoUrl, link, scheduledPublishTime, published }) {
+  const { accessToken, pageId } = getFacebookAccount(key);
+  if (!message && !imageUrl && !videoUrl) throw new Error('Facebook publish needs at least a message, image_url, or video_url.');
+  if (imageUrl && videoUrl) throw new Error('Provide image_url OR video_url, not both.');
+
+  // Choose endpoint by media type. FB Pages uses different edges per type.
+  let endpoint, params;
+  if (videoUrl) {
+    endpoint = `/${pageId}/videos`;
+    params = { file_url: videoUrl, access_token: accessToken };
+    if (message) params.description = message;
+  } else if (imageUrl) {
+    endpoint = `/${pageId}/photos`;
+    params = { url: imageUrl, access_token: accessToken };
+    if (message) params.caption = message;
+  } else {
+    endpoint = `/${pageId}/feed`;
+    params = { message, access_token: accessToken };
+    if (link) params.link = link;
+  }
+
+  if (typeof published === 'boolean') params.published = published;
+  if (scheduledPublishTime) {
+    params.scheduled_publish_time = scheduledPublishTime;
+    params.published = false; // Required for scheduled posts
+  }
+
+  const result = await facebookGraph(endpoint, 'POST', params);
+
+  // Videos return immediately with an id but need processing; surface that fact.
+  if (videoUrl) {
+    return { success: true, post_id: result.id, type: 'video', video_url: videoUrl, processing: 'video uploads continue processing on Meta after this returns; check the post a moment later if it does not appear immediately' };
+  }
+  return { success: true, post_id: result.id, type: imageUrl ? 'photo' : 'text', message: message || null };
+}
+
+async function facebookGetPostComments(key, postId, limit = 25) {
+  const { accessToken } = getFacebookAccount(key);
+  return facebookGraph(`/${postId}/comments`, 'GET', {
+    fields: 'id,from,message,created_time,like_count,comment_count,is_hidden,parent',
+    limit,
+    access_token: accessToken,
+  });
+}
+
+async function facebookReplyToComment(key, commentId, message) {
+  const { accessToken } = getFacebookAccount(key);
+  return facebookGraph(`/${commentId}/comments`, 'POST', {
+    message,
+    access_token: accessToken,
+  });
+}
+
+async function facebookHideComment(key, commentId, hide = true) {
+  const { accessToken } = getFacebookAccount(key);
+  return facebookGraph(`/${commentId}`, 'POST', {
+    is_hidden: hide,
+    access_token: accessToken,
+  });
+}
+
+async function facebookDeleteComment(key, commentId) {
+  const { accessToken } = getFacebookAccount(key);
+  const data = await facebookGraph(`/${commentId}`, 'DELETE', { access_token: accessToken });
+  return { success: true, comment_id: commentId, ...data };
+}
+
+async function facebookGetPostInsights(key, postId, metrics) {
+  const { accessToken } = getFacebookAccount(key);
+  const metric = metrics && metrics.length
+    ? metrics.join(',')
+    : 'post_impressions,post_engaged_users,post_clicks,post_reactions_by_type_total';
+  return facebookGraph(`/${postId}/insights`, 'GET', {
+    metric,
+    access_token: accessToken,
+  });
+}
+
+async function facebookGetPageInsights(key, { metrics, period = 'day', since, until } = {}) {
+  const { accessToken, pageId } = getFacebookAccount(key);
+  const metric = metrics && metrics.length
+    ? metrics.join(',')
+    : 'page_impressions,page_post_engagements,page_views_total,page_fan_adds';
+  const params = { metric, period, access_token: accessToken };
+  if (since) params.since = since;
+  if (until) params.until = until;
+  return facebookGraph(`/${pageId}/insights`, 'GET', params);
+}
+
 // ─── Tool definitions ─────────────────────────────────────────────────────────
 
 const accountNames = ACCOUNT_KEYS.join(', ');
@@ -878,12 +1031,146 @@ const TOOLS = [
       required: ['account'],
     },
   },
+
+  // ─── Facebook Pages ─────────────────────────────────────────────────────────
+
+  {
+    name: 'facebook_get_page',
+    description: 'Get Facebook Page info (name, about, category, fan count, follower count, link, picture, cover). Requires FACEBOOK_{KEY}_TOKEN (Page Access Token) and FACEBOOK_{KEY}_PAGE_ID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+      },
+      required: ['account'],
+    },
+  },
+  {
+    name: 'facebook_get_posts',
+    description: 'Get recent posts from the configured Facebook Page.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        limit: { type: 'number', description: 'Number of posts to return (default 10)' },
+      },
+      required: ['account'],
+    },
+  },
+  {
+    name: 'facebook_get_post',
+    description: 'Get full details for a single Facebook post by ID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        post_id: { type: 'string', description: 'Facebook post ID' },
+      },
+      required: ['account', 'post_id'],
+    },
+  },
+  {
+    name: 'facebook_publish',
+    description: 'Publish to a Facebook Page. Text, image, or video. Provide message alone, message+image_url, or message+video_url. Supports scheduled posts via scheduled_publish_time. Video uploads continue processing on Meta after the call returns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        message: { type: 'string', description: 'Post body. Required for text posts; used as caption/description for image and video posts.' },
+        image_url: { type: 'string', description: 'Public URL to a JPEG/PNG (optional)' },
+        video_url: { type: 'string', description: 'Public URL to an MP4 (optional, mutually exclusive with image_url)' },
+        link: { type: 'string', description: 'Optional URL to attach as a link preview (text posts only)' },
+        scheduled_publish_time: { type: 'number', description: 'Optional Unix timestamp; sets published=false and schedules the post.' },
+        published: { type: 'boolean', description: 'Set to false to save as a draft. Default true.' },
+      },
+      required: ['account'],
+    },
+  },
+  {
+    name: 'facebook_get_post_comments',
+    description: 'Get comments on a Facebook post, including reply context and hidden state.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        post_id: { type: 'string', description: 'Facebook post ID' },
+        limit: { type: 'number', description: 'Number of comments to return (default 25)' },
+      },
+      required: ['account', 'post_id'],
+    },
+  },
+  {
+    name: 'facebook_reply_to_comment',
+    description: 'Reply to a Facebook comment.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        comment_id: { type: 'string', description: 'Facebook comment ID' },
+        message: { type: 'string', description: 'Reply text' },
+      },
+      required: ['account', 'comment_id', 'message'],
+    },
+  },
+  {
+    name: 'facebook_hide_comment',
+    description: 'Hide (or unhide) a Facebook comment. Hidden comments remain attached to the post but are not visible to the public.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        comment_id: { type: 'string', description: 'Facebook comment ID' },
+        hide: { type: 'boolean', description: 'true to hide (default), false to unhide' },
+      },
+      required: ['account', 'comment_id'],
+    },
+  },
+  {
+    name: 'facebook_delete_comment',
+    description: 'Permanently delete a Facebook comment. This action cannot be undone.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        comment_id: { type: 'string', description: 'Facebook comment ID' },
+      },
+      required: ['account', 'comment_id'],
+    },
+  },
+  {
+    name: 'facebook_get_post_insights',
+    description: 'Get insights for a Facebook post. Default: post_impressions, post_engaged_users, post_clicks, post_reactions_by_type_total.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        post_id: { type: 'string', description: 'Facebook post ID' },
+        metrics: { type: 'array', items: { type: 'string' }, description: 'Optional metrics list. Default: post_impressions, post_engaged_users, post_clicks, post_reactions_by_type_total.' },
+      },
+      required: ['account', 'post_id'],
+    },
+  },
+  {
+    name: 'facebook_get_page_insights',
+    description: 'Get Page-level Facebook insights over a window. Default: page_impressions, page_post_engagements, page_views_total, page_fan_adds.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account: { type: 'string', description: accountDesc },
+        metrics: { type: 'array', items: { type: 'string' }, description: 'Optional metrics list. Default: page_impressions, page_post_engagements, page_views_total, page_fan_adds.' },
+        period: { type: 'string', description: 'day, week, days_28. Default: day.' },
+        since: { type: 'string', description: 'Optional Unix timestamp lower bound' },
+        until: { type: 'string', description: 'Optional Unix timestamp upper bound' },
+      },
+      required: ['account'],
+    },
+  },
 ];
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'ouroboros-mcp', version: '1.4.0' },
+  { name: 'ouroboros-mcp', version: '1.5.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -921,6 +1208,16 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case 'threads_reply':                 result = await threadsReply(args.account, { replyToId: args.reply_to_id, text: args.text, imageUrl: args.image_url, videoUrl: args.video_url, replyControl: args.reply_control }); break;
       case 'threads_get_post_insights':     result = await threadsGetPostInsights(args.account, args.thread_id, args.metrics); break;
       case 'threads_get_account_insights':  result = await threadsGetAccountInsights(args.account, { metrics: args.metrics, since: args.since, until: args.until }); break;
+      case 'facebook_get_page':             result = await facebookGetPage(args.account); break;
+      case 'facebook_get_posts':            result = await facebookGetPosts(args.account, args.limit); break;
+      case 'facebook_get_post':             result = await facebookGetPost(args.account, args.post_id); break;
+      case 'facebook_publish':              result = await facebookPublish(args.account, { message: args.message, imageUrl: args.image_url, videoUrl: args.video_url, link: args.link, scheduledPublishTime: args.scheduled_publish_time, published: args.published }); break;
+      case 'facebook_get_post_comments':    result = await facebookGetPostComments(args.account, args.post_id, args.limit); break;
+      case 'facebook_reply_to_comment':     result = await facebookReplyToComment(args.account, args.comment_id, args.message); break;
+      case 'facebook_hide_comment':         result = await facebookHideComment(args.account, args.comment_id, args.hide !== false); break;
+      case 'facebook_delete_comment':       result = await facebookDeleteComment(args.account, args.comment_id); break;
+      case 'facebook_get_post_insights':    result = await facebookGetPostInsights(args.account, args.post_id, args.metrics); break;
+      case 'facebook_get_page_insights':    result = await facebookGetPageInsights(args.account, { metrics: args.metrics, period: args.period, since: args.since, until: args.until }); break;
       default: throw new Error(`Unknown tool: ${name}`);
     }
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };

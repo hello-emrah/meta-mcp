@@ -8,6 +8,7 @@
   An MCP server for the Meta Graph API.<br/>
   <strong>Instagram</strong>: photos, carousels, Reels, Stories, video, DMs, comments, moderation, insights, tagged posts, hashtag search.<br/>
   <strong>Threads</strong>: text, image, video, carousels, replies, conversations, insights.<br/>
+  <strong>Facebook Pages</strong>: publish, scheduled posts, comments, moderation, insights.<br/>
   Across multiple accounts.<br/>
   <strong>The endless loop, on your terms.</strong>
 </p>
@@ -38,6 +39,14 @@ The serpent eats her tail. The platform's content cycle is endless and so is the
 - **Reply** to threads with media support
 - Read recent threads, single posts, replies, and full conversations
 - Pull **post** and **account insights**
+
+### Facebook Pages
+- Publish **text**, **image**, and **video** posts
+- **Schedule posts** for a future Unix timestamp
+- Save **drafts** (`published: false`)
+- Read recent posts and single posts
+- Read, reply, **hide**, **delete** comments
+- Pull **post** and **page insights**
 
 ### Shared
 - **Multi-account support**, configure any number of accounts via env vars, no code changes
@@ -81,6 +90,11 @@ INSTAGRAM_MYBUSINESS_USER_ID=your_instagram_user_id
 THREADS_MYACCOUNT_TOKEN=your_long_lived_threads_access_token
 THREADS_MYACCOUNT_USER_ID=your_threads_user_id
 
+# Facebook Page credentials per account key (omit if the account doesn't use FB Page tools)
+# Note: this is a Page Access Token, not a user token.
+FACEBOOK_MYACCOUNT_TOKEN=your_page_access_token
+FACEBOOK_MYACCOUNT_PAGE_ID=your_facebook_page_id
+
 META_APP_ID=your_app_id
 META_APP_SECRET=your_app_secret
 ```
@@ -110,6 +124,20 @@ Generate a long-lived access token via the Instagram API setup page (the token f
 
 Generate a Threads access token via the Threads API setup page in your Meta Developer App. Call `GET /me?fields=id,username` on `graph.threads.net` to get the Threads User ID for each account.
 
+**For Facebook Pages:** add these permissions:
+- `pages_show_list`
+- `pages_read_engagement`
+- `pages_manage_posts`
+- `pages_manage_engagement` (for comment reply / hide / delete)
+- `pages_read_user_content` (for reading comments)
+- `read_insights` (for page and post insights)
+
+Get a long-lived **Page Access Token** (not a user token):
+1. Generate a User Access Token with the permissions above
+2. Exchange for a long-lived user token (60 days)
+3. Call `GET /me/accounts?access_token={user_token}` to list your pages with per-page tokens. The `access_token` on each page entry is the Page Access Token. Use that.
+4. The same response gives you the Page ID.
+
 ## Wiring into Claude Code
 
 Add to your `~/.claude.json` under `mcpServers`:
@@ -124,6 +152,8 @@ Add to your `~/.claude.json` under `mcpServers`:
     "INSTAGRAM_MYACCOUNT_USER_ID": "...",
     "THREADS_MYACCOUNT_TOKEN": "...",
     "THREADS_MYACCOUNT_USER_ID": "...",
+    "FACEBOOK_MYACCOUNT_TOKEN": "...",
+    "FACEBOOK_MYACCOUNT_PAGE_ID": "...",
     "INSTAGRAM_MYBUSINESS_TOKEN": "...",
     "INSTAGRAM_MYBUSINESS_USER_ID": "...",
     "META_APP_ID": "...",
@@ -132,13 +162,13 @@ Add to your `~/.claude.json` under `mcpServers`:
 }
 ```
 
-Each account key only needs the credentials for the platforms it will use. An IG-only account omits the `THREADS_*` vars; a Threads-only account omits the `INSTAGRAM_*` ones; both means both. Tools error cleanly if you call them for a platform the account isn't credentialed for.
+Each account key only needs the credentials for the platforms it will use. An IG-only account omits the `THREADS_*` and `FACEBOOK_*` vars; a Facebook-only account omits the IG and Threads ones; any mix works. Tools error cleanly if you call them for a platform the account isn't credentialed for.
 
 Restart Claude Code. Tools appear under the `mcp__ouroboros__*` namespace.
 
 ## Tools
 
-Twenty-seven tools across Instagram (18) and Threads (9). All take an `account` parameter matching one of your configured account keys.
+Thirty-seven tools across Instagram (18), Threads (9), and Facebook Pages (10). All take an `account` parameter matching one of your configured account keys.
 
 ## Instagram tools
 
@@ -218,6 +248,44 @@ Twenty-seven tools across Instagram (18) and Threads (9). All take an `account` 
 | `threads_get_post_insights` | Per-thread metrics. Default: views, likes, replies, reposts, quotes, shares. |
 | `threads_get_account_insights` | (also listed under Account) |
 
+## Facebook Pages tools
+
+### Page
+
+| Tool | Description |
+|---|---|
+| `facebook_get_page` | Page info: name, about, category, fan count, followers, link, picture, cover |
+| `facebook_get_page_insights` | Page-level metrics over a window. Default: page_impressions, page_post_engagements, page_views_total, page_fan_adds. |
+
+### Reading
+
+| Tool | Description |
+|---|---|
+| `facebook_get_posts` | Recent posts from the page |
+| `facebook_get_post` | Single post by ID with attachments |
+
+### Publishing
+
+| Tool | Description |
+|---|---|
+| `facebook_publish` | Text, image, or video post. Supports `scheduled_publish_time` for future posts and `published: false` for drafts. |
+
+### Comments
+
+| Tool | Description |
+|---|---|
+| `facebook_get_post_comments` | Comments on a post, including hidden state and reply parent |
+| `facebook_reply_to_comment` | Reply to a comment |
+| `facebook_hide_comment` | Hide or unhide a comment |
+| `facebook_delete_comment` | Permanently delete a comment |
+
+### Insights
+
+| Tool | Description |
+|---|---|
+| `facebook_get_post_insights` | Per-post metrics. Default: post_impressions, post_engaged_users, post_clicks, post_reactions_by_type_total. |
+| `facebook_get_page_insights` | (also listed under Page) |
+
 ## Format and size constraints
 
 Meta enforces format and size limits on the publishing endpoints. Ouroboros passes your URL through, so check your media against these before publishing:
@@ -243,15 +311,26 @@ Meta enforces format and size limits on the publishing endpoints. Ouroboros pass
 | `threads_publish_carousel` | Up to 500 chars shared | 2 to 20 image/video items | Each item is a separate container under the hood |
 | `threads_reply` | Up to 500 chars | Image or video, same rules | Requires `reply_to_id` |
 
+### Facebook Pages
+
+| Tool | Body | Media | Notes |
+|---|---|---|---|
+| `facebook_publish` (text) | Required | — | Optional `link` for a link-preview attachment |
+| `facebook_publish` (image) | Optional (caption) | JPEG, PNG (public URL) | — |
+| `facebook_publish` (video) | Optional (description) | MP4 (public URL) | Processes async on Meta; the post returns immediately but the video may take a moment to appear |
+| `facebook_publish` (scheduled) | Per type above | Per type above | `scheduled_publish_time` is a Unix timestamp; must be 10 min to 6 months in the future; automatically sets `published: false` |
+| `facebook_publish` (draft) | Per type above | Per type above | Pass `published: false` to save as a draft (managed via the Page's publishing tools UI) |
+
 ## Notes
 
 - **Publishing takes URLs, not files.** Repeated from above because it bites everyone once. Local file uploads are not supported by Meta's publishing endpoints. Host your asset somewhere reachable and pass the URL.
 - **Async publishing.** `publish_video`, `publish_reel`, and `publish_story` (video) wait up to 90 seconds for Meta to process the upload. Larger files may need a longer wait; if you hit the timeout the container often finishes anyway and you can retry the publish step.
 - **Errors come back inline.** When Meta rejects a call (bad URL, expired token, missing permission, format mismatch), the error message and code surface in the tool's response. No silent failures.
 - **DM sending** requires `instagram_manage_messages`. Works in dev mode for accounts added as app testers; requires Meta app review for general use.
-- **Insights** require their platform-specific permission: `instagram_manage_insights` for IG, `threads_manage_insights` for Threads. The legacy IG `impressions` metric was deprecated by Meta on 2 April 2025 for posts, reels, videos, and carousels; use `views` for video and reel where you need that surface. IG account-level metrics like `profile_views`, `accounts_engaged`, and `website_clicks` are now part of the v18+ aggregate set: pass them in `metrics` AND set `metric_type=total_value`.
+- **Insights** require their platform-specific permission: `instagram_manage_insights` for IG, `threads_manage_insights` for Threads, `read_insights` for Facebook Pages. The legacy IG `impressions` metric was deprecated by Meta on 2 April 2025 for posts, reels, videos, and carousels; use `views` for video and reel where you need that surface. IG account-level metrics like `profile_views`, `accounts_engaged`, and `website_clicks` are now part of the v18+ aggregate set: pass them in `metrics` AND set `metric_type=total_value`.
 - **Threads reply control.** `reply_control` accepts `everyone` (default), `accounts_you_follow`, or `mentioned_only`. Set on the top-level publish call, not per reply.
-- **Long-lived tokens** expire after 60 days. Refresh IG tokens via `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=...`. Refresh Threads tokens via the equivalent endpoint on `graph.threads.net`. Or rotate from the Meta dashboard.
+- **Facebook Page Access Tokens** are different from User Access Tokens. You need a Page Access Token (obtained from `/me/accounts` with a user token that has `pages_show_list`). Page tokens generated from a long-lived user token are themselves long-lived (effectively no expiry while the user token is valid).
+- **Long-lived tokens** expire after 60 days for IG and Threads. Refresh IG tokens via `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=...`. Refresh Threads tokens via the equivalent endpoint on `graph.threads.net`. Or rotate from the Meta dashboard.
 
 ## Design philosophy
 
