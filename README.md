@@ -333,6 +333,10 @@ Meta enforces format and size limits on the publishing endpoints. Ouroboros pass
 - **Facebook Page Access Tokens** are different from User Access Tokens. You need a Page Access Token (obtained from `/me/accounts` with a user token that has `pages_show_list`). Page tokens generated from a long-lived user token are themselves long-lived (effectively no expiry while the user token is valid).
 - **Long-lived tokens** expire after 60 days for IG and Threads. Refresh IG tokens via `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=...`. Refresh Threads tokens via the equivalent endpoint on `graph.threads.net`. Or rotate from the Meta dashboard.
 
+## Why "Ouroboros"
+
+The ouroboros is the serpent that eats her own tail, the ancient glyph of the eternal cycle, the loop with no beginning and no end. A platform's content cycle is exactly that: post, reply, monitor, post again, forever. Ouroboros wraps Meta's Graph API so that loop runs through Claude Code instead of a browser tab and a phone in your hand. The lotus crown on the mark is the reminder built into the name: you sit above the loop, working it, not caught inside it.
+
 ## Design philosophy
 
 The visual mark and the tool itself were built deliberately against the visual language of capitalist software design. Single-shade flat seals in considered colours, ancient-glyph silhouettes, generous whitespace. The mark could be pressed into wax or carved into stone. The Meta-blue here is intentional, a wink: an ouroboros-shaped tool wrapping Meta's own infinity-looped API.
