@@ -74,6 +74,30 @@ async function facebookGraph(endpoint, method = 'GET', params = {}) {
   return apiCall(FACEBOOK_API_BASE, endpoint, method, params, 'Facebook Graph API');
 }
 
+// Graph API echoes the access_token back inside paging URLs (paging.next etc).
+// Strip it from any string in the response so tokens never leave this process.
+function scrubTokens(value) {
+  if (value == null) return value;
+  if (typeof value === 'string') {
+    if (value.includes('access_token=')) {
+      try {
+        const u = new URL(value);
+        u.searchParams.delete('access_token');
+        return u.toString();
+      } catch {
+        return value.replace(/([?&])access_token=[^&]*/g, '$1access_token=REDACTED');
+      }
+    }
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(scrubTokens);
+  if (typeof value === 'object') {
+    for (const k of Object.keys(value)) value[k] = scrubTokens(value[k]);
+    return value;
+  }
+  return value;
+}
+
 async function apiCall(base, endpoint, method, params, label = 'Graph API') {
   const url = new URL(`${base}${endpoint}`);
   const options = { method };
@@ -88,7 +112,7 @@ async function apiCall(base, endpoint, method, params, label = 'Graph API') {
   const res = await fetch(url.toString(), options);
   const data = await res.json();
   if (data.error) throw new Error(`${label}: ${data.error.message} (code ${data.error.code})`);
-  return data;
+  return scrubTokens(data);
 }
 
 // ─── API functions ────────────────────────────────────────────────────────────
