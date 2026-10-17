@@ -1204,7 +1204,7 @@ const TOOLS = [
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'ouroboros-mcp', version: '1.5.1' },
+  { name: 'meta-mcp', version: '1.5.1' },
   { capabilities: { tools: {} } }
 );
 

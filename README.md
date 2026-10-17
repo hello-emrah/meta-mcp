@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Ouroboros" width="240" />
+  <img src="assets/logo.png" alt="Meta MCP" width="240" />
 </p>
 
-<h1 align="center">Ouroboros</h1>
+<h1 align="center">Meta MCP</h1>
+
+<p align="center"><em>Formerly Ouroboros.</em></p>
 
 <p align="center">
   An MCP server for the Meta Graph API.<br/>
@@ -10,7 +12,6 @@
   <strong>Threads</strong>: text, image, video, carousels, replies, conversations, insights.<br/>
   <strong>Facebook Pages</strong>: publish, scheduled posts, comments, moderation, insights.<br/>
   Across multiple accounts.<br/>
-  <strong>The endless loop, on your terms.</strong>
 </p>
 
 <p align="center">
@@ -20,10 +21,10 @@
 
 ---
 
-The serpent eats her tail. The platform's content cycle is endless and so is the rhythm of working it: post, reply, monitor, post again. Ouroboros wraps Meta's Graph API so the cycle runs through Claude Code instead of a browser tab and a phone. The lotus crown on the mark is the reminder: you sit above the loop, not inside it.
+Meta MCP wraps Meta's Graph API so posting, replying and monitoring run through Claude Code instead of a browser tab and a phone.
 
 > [!IMPORTANT]
-> **URLs, not local files.** Meta's publishing endpoints (Instagram, Threads, and Facebook Pages) do not accept local file uploads. Every `publish_*`, `threads_publish*`, and `facebook_publish` tool takes a **publicly accessible URL** as input. Host your media somewhere reachable (S3, Cloudflare R2, your own CDN, a public bucket) and pass the URL. This is a Meta limitation, not an Ouroboros one. If your asset is on disk, upload it to a host first.
+> **URLs, not local files.** Meta's publishing endpoints (Instagram, Threads, and Facebook Pages) do not accept local file uploads. Every `publish_*`, `threads_publish*`, and `facebook_publish` tool takes a **publicly accessible URL** as input. Host your media somewhere reachable (S3, Cloudflare R2, your own CDN, a public bucket) and pass the URL. This is a Meta limitation, not an Meta MCP one. If your asset is on disk, upload it to a host first.
 
 ## Features
 
@@ -62,8 +63,8 @@ The serpent eats her tail. The platform's content cycle is endless and so is the
 ## Installation
 
 ```bash
-git clone https://github.com/hello-emrah/ouroboros-mcp.git
-cd ouroboros-mcp
+git clone https://github.com/hello-emrah/meta-mcp.git
+cd meta-mcp
 npm install
 ```
 
@@ -144,9 +145,9 @@ Get a long-lived **Page Access Token** (not a user token):
 Add to your `~/.claude.json` under `mcpServers`:
 
 ```json
-"ouroboros": {
+"meta": {
   "command": "node",
-  "args": ["/path/to/ouroboros-mcp/index.js"],
+  "args": ["/path/to/meta-mcp/index.js"],
   "env": {
     "ACCOUNTS": "myaccount,mybusiness",
     "INSTAGRAM_MYACCOUNT_TOKEN": "...",
@@ -165,7 +166,7 @@ Add to your `~/.claude.json` under `mcpServers`:
 
 Each account key only needs the credentials for the platforms it will use. An IG-only account omits the `THREADS_*` and `FACEBOOK_*` vars; a Facebook-only account omits the IG and Threads ones; any mix works. Tools error cleanly if you call them for a platform the account isn't credentialed for.
 
-Restart Claude Code. Tools appear under the `mcp__ouroboros__*` namespace.
+Restart Claude Code. Tools appear under the `mcp__meta__*` namespace.
 
 ## Tools
 
@@ -289,7 +290,7 @@ Thirty-seven tools across Instagram (18), Threads (9), and Facebook Pages (10). 
 
 ## Format and size constraints
 
-Meta enforces format and size limits on the publishing endpoints. Ouroboros passes your URL through, so check your media against these before publishing:
+Meta enforces format and size limits on the publishing endpoints. Meta MCP passes your URL through, so check your media against these before publishing:
 
 ### Instagram
 
@@ -334,13 +335,9 @@ Meta enforces format and size limits on the publishing endpoints. Ouroboros pass
 - **Facebook Page Access Tokens** are different from User Access Tokens. You need a Page Access Token (obtained from `/me/accounts` with a user token that has `pages_show_list`). Page tokens generated from a long-lived user token are themselves long-lived (effectively no expiry while the user token is valid).
 - **Long-lived tokens** expire after 60 days for IG and Threads. Refresh IG tokens via `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=...`. Refresh Threads tokens via the equivalent endpoint on `graph.threads.net`. Or rotate from the Meta dashboard.
 
-## Why "Ouroboros"
-
-The ouroboros is the serpent that eats her own tail, the ancient glyph of the eternal cycle, the loop with no beginning and no end. A platform's content cycle is exactly that: post, reply, monitor, post again, forever. Ouroboros wraps Meta's Graph API so that loop runs through Claude Code instead of a browser tab and a phone in your hand. The lotus crown on the mark is the reminder built into the name: you sit above the loop, working it, not caught inside it.
-
 ## Design philosophy
 
-The visual mark and the tool itself were built deliberately against the visual language of capitalist software design. Single-shade flat seals in considered colours, ancient-glyph silhouettes, generous whitespace. The mark could be pressed into wax or carved into stone. The Meta-blue here is intentional, a wink: an ouroboros-shaped tool wrapping Meta's own infinity-looped API.
+The visual mark and the tool itself were built deliberately against the visual language of capitalist software design. Single-shade flat seals in considered colours, ancient-glyph silhouettes, generous whitespace. The mark could be pressed into wax or carved into stone.
 
 Built for personal use and shared openly. Not productised, not monetised, not instrumented. Use it for your own work or fork it for yours.
 
